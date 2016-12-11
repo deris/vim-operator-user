@@ -24,7 +24,7 @@
 " Interface  "{{{1
 function! operator#user#define(name, function_name, ...)  "{{{2
   return call('operator#user#_define',
-  \           ['<Plug>(operator-' . a:name . ')', a:function_name] + a:000)
+  \           [a:name, a:function_name] + a:000)
 endfunction
 
 
@@ -64,13 +64,61 @@ endfunction
 
 
 
+function! operator#user#add_hook(hook, when)  "{{{2
+  if type(a:hook) == type('')
+    let OperatorUserHook = function(a:hook)
+  elseif type(a:hook) == type(function('tr'))
+    let OperatorUserHook = a:hook
+  else
+    echoerr 'operator-user:E2: Invalid hook type:' string(type(a:hook))
+  endif
+  if (a:when ==# 'before') || (a:when ==# 'after')
+    let s:hook[s:hook_id] = {
+      \ 'func': OperatorUserHook,
+      \ 'when': a:when,
+      \ }
+  else
+    echoerr 'operator-user:E3: Invalid hook timing:' string(a:when)
+  endif
+  let s:hook_id += 1
+  return s:hook_id - 1
+endfunction
+
+
+
+
+function! operator#user#delete_hook(id)  "{{{2
+  if has_key(s:hook, a:id)
+    call remove(s:hook, a:id)
+  else
+  endif
+endfunction
+
+
+
+
+function! operator#user#delete_all_hooks(...)  "{{{2
+  if a:0 == 0
+    let s:hook = {}
+  elseif a:0 == 1
+    let when = a:1
+    if when ==# 'before' || when ==# 'after'
+      let s:hook = filter(s:hook, 'v:val["when"] !=# when')
+    else
+      echoerr 'operator-user:E4: Invalid parameter:' string(when)
+    endif
+  else
+    echoerr 'operator-user:E5: Invalid parameter number:' string(a:wise_name)
+  endif
+endfunction
 
 
 
 
 " Misc.  "{{{1
 " Support functions for operator#user#define()  "{{{2
-function! operator#user#_define(operator_keyseq, function_name, ...)
+function! operator#user#_define(name, function_name, ...)
+  let operator_keyseq = '<Plug>(operator-' . a:name . ')'
   if 0 < a:0
     let additional_settings = '\|' . join(a:000)
   else
@@ -78,29 +126,37 @@ function! operator#user#_define(operator_keyseq, function_name, ...)
   endif
 
   execute printf(('nnoremap <script> <silent> %s ' .
-  \               ':<C-u>call operator#user#_set_up(%s)%s<Return>' .
+  \               ':<C-u>call operator#user#_set_up(%s, %s)%s<Return>' .
   \               '<SID>(count)' .
   \               '<SID>(register)' .
   \               'g@'),
-  \              a:operator_keyseq,
+  \              operator_keyseq,
+  \              string(a:name),
   \              string(a:function_name),
   \              additional_settings)
   execute printf(('vnoremap <script> <silent> %s ' .
-  \               ':<C-u>call operator#user#_set_up(%s)%s<Return>' .
+  \               ':<C-u>call operator#user#_set_up(%s, %s)%s<Return>' .
   \               'gv' .
   \               '<SID>(register)' .
   \               'g@'),
-  \              a:operator_keyseq,
+  \              operator_keyseq,
+  \              string(a:name),
   \              string(a:function_name),
   \              additional_settings)
-  execute printf('onoremap %s  g@', a:operator_keyseq)
+  execute printf('onoremap %s  g@', operator_keyseq)
 endfunction
 
 
-function! operator#user#_set_up(operator_function_name)
-  let &operatorfunc = a:operator_function_name
+function! operator#user#_set_up(operator_name, operator_function_name)
+  let s:operator_name = a:operator_name
+  let s:operator_function_name = a:operator_function_name
+  set operatorfunc=operator#user#_wrap_operator_function
   let s:count = v:count
   let s:register = v:register
+
+  for hook in values(filter(copy(s:hook), 'v:val["when"] ==# "before"'))
+    call call(hook['func'], [s:operator_name])
+  endfor
 endfunction
 
 
@@ -119,6 +175,14 @@ endfunction
 
 
 
+function! operator#user#_wrap_operator_function(motion_wiseness)
+  call call(s:operator_function_name, [a:motion_wiseness])
+
+  for hook in values(filter(copy(s:hook), 'v:val["when"] ==# "after"'))
+    call call(hook['func'], [s:operator_name, a:motion_wiseness])
+  endfor
+endfunction
+
 " Variables  "{{{2
 
 " See operator#user#_do_ex_command() and operator#user#_set_ex_command().
@@ -129,6 +193,12 @@ endfunction
 
 " See operator#user#_set_up() and s:register()
 " let s:register = ''
+
+" See operator#user#add_hook()
+let s:hook_id = 0
+
+" See operator#user#add_hook() and operator#user#delete_hook() etc.
+let s:hook = {}
 
 
 

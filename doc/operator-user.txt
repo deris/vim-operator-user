@@ -157,6 +157,36 @@ operator#user#visual_command_from_wise_name({wise-name})
 
 			See |operator-user-examples-D| for usage.
 
+						*operator#user#add_hook()*
+operator#user#add_hook({hook}, {when})
+			Add a hook and return the hook ID.
+
+			{hook}	(string|Funcref)
+			The function to call. It can be the name of a function
+			or a |Funcref|.
+
+			{when}	(string)
+			'before' or 'after' is allowed.
+			'before' means that hook is called before operator execution.
+			'after' means that hook is called after operator execution.
+
+						*operator#user#delete_hook()*
+operator#user#delete_hook({id})
+			Delete a hook. The hook will no longer be invoked.
+			{id} is an ID returned by operator#user#add_hook(),
+
+			{id}	(string)
+			ID returned by operator#user#add_hook(),
+
+						*operator#user#delete_hook()*
+operator#user#delete_all_hooks([{when}])
+			Delete all hooks. Hooks will no longer be invoked.
+			If {when} is absent, all hooks will be deleted.
+			If {when} is 'before', all hooks that specified 'before'
+			when operator#user#add_hook() call.
+			If {when} is 'after', all hooks that specified 'after'
+			when operator#user#add_hook() call.
+
 
 
 
